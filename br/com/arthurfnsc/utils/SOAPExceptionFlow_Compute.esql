@@ -1,0 +1,29 @@
+BROKER SCHEMA br.com.arthurfnsc.utils
+
+
+DECLARE ns NAMESPACE 'http://schemas.xmlsoap.org/soap/envelope/';
+
+CREATE COMPUTE MODULE SOAPExceptionFlow_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		SET InputLocalEnvironment.Destination.HTTP.ReplyStatusCode   = 500;
+		
+		DECLARE messageText CHARACTER;
+		DECLARE ptrException REFERENCE TO InputExceptionList.*[1];
+		
+		WHILE LASTMOVE(ptrException) DO
+			IF ptrException.Number IS NOT NULL THEN
+				SET messageText = ptrException.Text;
+			END IF;
+			MOVE ptrException LASTCHILD;
+		END WHILE;
+			
+		SET OutputRoot.SOAP.Body.ns:Fault.faultcode = 'Server';
+		SET OutputRoot.SOAP.Body.ns:Fault.faultstring = messageText;
+		SET OutputRoot.SOAP.Body.ns:Fault.detail.ExceptionList = InputExceptionList;
+		
+		RETURN TRUE;
+		
+	END;
+END MODULE;
